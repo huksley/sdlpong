@@ -46,17 +46,26 @@
 // http://www.openscenegraph.org/projects/osg/wiki/Support/Tutorials/MacOSXTips
 // https://gamedev.stackexchange.com/questions/4253/in-pong-how-do-you-calculate-the-balls-direction-when-it-bounces-off-the-paddl
 //#include <SDL2/SDL.h>
-#include "SDL.h"
-// #include "SDL2_ttf/include/SDL_ttf.h"
 
 #include <stdio.h>
+#include <math.h>
+#include "SDL.h"
+// #include "SDL2_ttf/include/SDL_ttf.h"
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
 #define WINDOW_TITLE "Ping"
 #define WINDOW_TEXT "Pong"
 
+#if defined(_WIN32)
+#include <windows.h>
+int WINAPI WinMain(HINSTANCE hInstance,
+                   HINSTANCE hPrevInstance,
+                   LPSTR lpCmdLine,
+                   int nCmdShow)
+#else
 int main(int argc, char *args[])
+#endif
 {
     SDL_Window *window = NULL;         // The window we are rendering to
     SDL_Surface *screenSurface = NULL; // The surface contained by the window

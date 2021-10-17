@@ -10,6 +10,19 @@
             "cStandard": "c17",
             "cppStandard": "c++98",
             "intelliSenseMode": "macos-gcc-x64"
+        },
+        {
+            "name": "Win",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/x86_64-w64-mingw32/include/SDL2",
+                "C:/msys64/usr/lib/gcc/x86_64-pc-msys/10.2.0/include/c++/tr1"
+            ],
+            "windowsSdkVersion": "10.0.19041.0",
+            "compilerPath": "C:/msys64/usr/bin/g++.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++98",
+            "intelliSenseMode": "windows-gcc-x64"
         }
     ],
     "version": 4
