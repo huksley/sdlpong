@@ -75,7 +75,7 @@ int main(int argc, char *args[])
 
     int height = 65;
     int width = 15;
-    int moveDelta = 10;
+    int moveDelta = 30;
 
     int leftX = 20;
     int leftY = SCREEN_HEIGHT / 2 - height / 2;
@@ -87,6 +87,15 @@ int main(int argc, char *args[])
     int rightUp = SDLK_p;
     int rightDown = SDLK_l;
 
+    int ballW = 10;
+    int ballH = 10;
+    double ballCenterX = SCREEN_WIDTH / 2 - ballW / 2;
+    double ballCenterY = SCREEN_HEIGHT / 2 - ballH / 2;
+    double ballSpeedX = 5;
+    double ballSpeedY = 1;
+    double ballX = ballCenterX;
+    double ballY = ballCenterY;
+
     screenSurface = SDL_GetWindowSurface(window);
     Uint32 color = SDL_MapRGB(screenSurface->format, 240, 240, 240);
     Uint32 backgroundColor = SDL_MapRGB(screenSurface->format, 0, 0, 0);
@@ -94,8 +103,8 @@ int main(int argc, char *args[])
     SDL_UpdateWindowSurface(window);
 
     /*
-    Control: Q,A left side, P,L right side
-    Space start game
+    Control: Q,A left paddle, P,L right paddle
+    Space: Start game
     ==================
 
 
@@ -107,11 +116,12 @@ int main(int argc, char *args[])
 
     SDL_Event event;
     bool eQuit = false;
+    long iteration = 0;
     while (!eQuit)
     {
         SDL_FillRect(screenSurface, NULL, backgroundColor);
 
-        // Draw left
+        // Draw left paddle
         SDL_Rect left;
         left.x = leftX;
         left.y = leftY;
@@ -119,13 +129,65 @@ int main(int argc, char *args[])
         left.h = height;
         SDL_FillRect(screenSurface, &left, color);
 
-        // Draw right
+        // Draw right paddle
         SDL_Rect right;
         right.x = rightX;
         right.y = rightY;
         right.w = width;
         right.h = height;
         SDL_FillRect(screenSurface, &right, color);
+
+        // Draw ball
+        SDL_Rect ball;
+        ball.x = round(ballX - ballW / 2);
+        ball.y = round(ballY - ballH / 2);
+        ball.w = ballW;
+        ball.h = ballH;
+        SDL_FillRect(screenSurface, &ball, color);
+
+        // Update ball position
+        ballX += ballSpeedX;
+        ballY += ballSpeedY;
+
+        // Check ball collision right wall / paddle
+        if (ballX >= right.x)
+        {
+            if (ball.y >= right.y && ball.y <= right.y + right.h)
+            {
+                ballSpeedX *= -1;
+            }
+            else
+            {
+                ballX = ballCenterX;
+                ballY = ballCenterY;
+            }
+        }
+
+        // Check ball collision left wall / paddle
+        if (ballX <= left.x + width)
+        {
+            if (ball.y >= left.y && ball.y <= left.y + left.h)
+            {
+                ballSpeedX *= -1;
+            }
+            else
+            {
+                ballX = ballCenterX;
+                ballY = ballCenterY;
+            }
+        }
+
+        // Check ball collision top wall
+        if (ballY <= 0)
+        {
+            ballSpeedY *= -1;
+        }
+
+        // Check ball collision bottom wall
+        if (ballY >= SCREEN_HEIGHT)
+        {
+            ballSpeedY *= -1;
+        }
 
         SDL_UpdateWindowSurface(window);
 
@@ -170,7 +232,15 @@ int main(int argc, char *args[])
                 break;
             }
         }
-        SDL_Delay(30); // Keep < 500 [ms]
+
+        SDL_Delay(15); // Keep < 500 [ms]
+
+        // Log every 10 frames
+        if (iteration > 0 && iteration % 10 == 0)
+        {
+            SDL_Log("Ball x %f y %f, speedx %f speedy %f\n", ballX, ballY, ballSpeedX, ballSpeedY);
+        }
+        iteration++;
     }
 
     SDL_DestroyWindow(window);

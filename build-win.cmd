@@ -1,0 +1,1 @@
+gcc main.cpp -s -static -lmsys-2.0 -o main.exe && ./main
