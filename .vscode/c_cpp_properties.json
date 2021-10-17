@@ -15,14 +15,16 @@
             "name": "Win",
             "includePath": [
                 "${default}",
-                "${workspaceFolder}/x86_64-w64-mingw32/include/SDL2",
-                "C:/msys64/usr/lib/gcc/x86_64-pc-msys/10.2.0/include/c++/tr1"
+                "${workspaceFolder}/x86_64-w64-mingw32/include/SDL2"
             ],
             "windowsSdkVersion": "10.0.19041.0",
-            "compilerPath": "C:/msys64/usr/bin/g++.exe",
+            "compilerPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\BuildTools\\VC\\Tools\\MSVC\\14.16.27023\\bin\\Hostx64\\x64\\cl.exe",
             "cStandard": "c17",
             "cppStandard": "c++98",
-            "intelliSenseMode": "windows-gcc-x64"
+            "intelliSenseMode": "windows-msvc-x64",
+            "defines": [
+                "_WIN32"
+            ]
         }
     ],
     "version": 4

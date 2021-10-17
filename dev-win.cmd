@@ -1,0 +1,1 @@
+nodemon -e cpp -x "build-win && main"
