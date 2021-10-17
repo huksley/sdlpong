@@ -44,6 +44,7 @@
 //---------------------------------------------------------------------
 // Macos
 // http://www.openscenegraph.org/projects/osg/wiki/Support/Tutorials/MacOSXTips
+// https://gamedev.stackexchange.com/questions/4253/in-pong-how-do-you-calculate-the-balls-direction-when-it-bounces-off-the-paddl
 //#include <SDL2/SDL.h>
 #include "SDL.h"
 // #include "SDL2_ttf/include/SDL_ttf.h"
@@ -105,13 +106,13 @@ int main(int argc, char *args[])
     /*
     Control: Q,A left paddle, P,L right paddle
     Space: Start game
-    ==================
+    ===================
 
 
-     |       *      |
+    |        *        |
 
      
-    ==================
+    ===================
     */
 
     SDL_Event event;
