@@ -1,0 +1,2 @@
+#!/bin/bash
+gcc -g main.cpp -ISDL/include -LSDL/build -lSDL2 -o main
