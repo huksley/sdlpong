@@ -1,58 +1,7 @@
-//---------------------------------------------------------------------
-//  Name:       HelloSDL2.cpp
-//  Author:     EAML
-//  Date:       2021-05-16
-//
-//  Description:
-//      A minimal PoC for producing a native SDL2 Windows app that can
-//      be ran from either Windows Explorer or from Powershell console.
-//      It's designed to use minimal command line, compiler options,
-//      and dependencies... It will display a gray window for 2 sec's.
-//
-//  Dependencies:
-//      [1] LLVM Clang++ compiler package
-//      [2] SDL2 Libraries (DLL's) and Header files (*.h)
-//      [3] TTF Libraries (DLL's) and Header files (*.h)
-//
-//  Notes:
-//      There is a slight variation in the bahaviour, depending on:
-//      (a) if you compile as a Windows GUI:  the text will not show.
-//      (b) if you compile as a console CLI:  text will show in both terminal and/or in a 2nd new window
-//      (c) You may need to use "main()" for console and "WinMain()" for GUI...
-//      (c) to install on Linux, use packages:  clang, libsdl2-dev
-//      (d) Someone said: #define SDL_MAIN_HANDLED ...
-//
-//  To Run:
-//      cp .\SDL2\lib\x64\SDL2.dll C:\Windows\.     # For SDL2
-//      cp .\SDL2_ttf\lib\x64\*.dll C:\Windows\.    # For SDL2 TTF
-//      cp C:\Windows\Fonts\arial.ttf .             # Get a font...
-//
-//  For a CLI version, with console output in 2nd Window:
-//  # clang++.exe -std=c++17 main.cpp -o main.exe -L .\SDL2\lib\x64\ -L .\SDL2_ttf\lib\x64\ -I .\SDL2_ttf\include\ -I .\SDL2\include\ -lShell32 -lSDL2main -lSDL2 -lSDL2_ttf -Wno-narrowing -Xlinker /subsystem:console
-//
-//  For a GUI version, without any console output:
-//  # clang++.exe -std=c++17 main.cpp -o main.exe -L .\SDL2\lib\x64\ -L .\SDL2_ttf\lib\x64\ -I .\SDL2_ttf\include\ -I .\SDL2\include\ -lShell32 -lSDL2main -lSDL2 -lSDL2_ttf -Wno-narrowing -Xlinker /subsystem:windows
-//
-//  References:
-//      [1] https://github.com/llvm/llvm-project/releases
-//      [2] http://www.libsdl.org/release/SDL2-devel-2.0.14-VC.zip
-//      [3] https://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-devel-2.0.15-VC.zip
-//      [4] https://www.libsdl.org/projects/SDL_ttf/docs/SDL_ttf.html
-//      [5] http://www.sdltutorials.com/sdl-ttf
-//      [6] https://www.libsdl.org/release/SDL-1.2.15/docs/html/sdlevent.html
-//      [7] https://stackoverflow.com/q/67559556/
-//---------------------------------------------------------------------
-// Macos
-// http://www.openscenegraph.org/projects/osg/wiki/Support/Tutorials/MacOSXTips
-// https://gamedev.stackexchange.com/questions/4253/in-pong-how-do-you-calculate-the-balls-direction-when-it-bounces-off-the-paddl
-//#include <SDL2/SDL.h>
-
 #include <stdio.h>
 #include <math.h>
 #include "SDL.h"
 #include "SDL_ttf.h"
-
-// #include "SDL2_ttf/include/SDL_ttf.h"
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
@@ -148,6 +97,7 @@ int main(int argc, char *args[])
     SDL_FillRect(screenSurface, NULL, backgroundColor);
     SDL_UpdateWindowSurface(window);
     bool game = false;
+    char score[200];
 
     /*
     Control: Q,A left paddle, P,L right paddle
@@ -197,6 +147,9 @@ int main(int argc, char *args[])
             // Update ball position
             ballX += ballSpeedX;
             ballY += ballSpeedY;
+
+            snprintf(score, 200, "Score %i:%i", scoreLeft, scoreRight);
+            drawText(screenSurface, score, 18, 10, 10, textColor, black);
         }
 
         // Check ball collision right wall / paddle
@@ -208,11 +161,13 @@ int main(int argc, char *args[])
             }
             else
             {
+                scoreLeft += 1;
                 game = false;
                 rightY = centerY;
                 leftY = centerY;
                 ballX = ballCenterX;
                 ballY = ballCenterY;
+                SDL_Log("Game ended!");
             }
         }
 
@@ -225,11 +180,13 @@ int main(int argc, char *args[])
             }
             else
             {
+                scoreRight += 1;
                 game = false;
                 rightY = centerY;
                 leftY = centerY;
                 ballX = ballCenterX;
                 ballY = ballCenterY;
+                SDL_Log("Game ended!");
             }
         }
 
@@ -245,10 +202,10 @@ int main(int argc, char *args[])
             ballSpeedY *= -1;
         }
 
+        // If !game, game isnt live
         if (!game)
         {
-            char score[200];
-            snprintf(score, 200, "Score %i:%i. Press SPACE to play. Q,A - left, P,L - right.", scoreLeft, scoreRight);
+            snprintf(score, 200, "Score %i:%i. Press SPACE to play. Q, A - left, P, L - right.", scoreLeft, scoreRight);
             drawText(screenSurface, score, 18, 10, 10, textColor, black);
         }
 
@@ -262,10 +219,12 @@ int main(int argc, char *args[])
                 eQuit = true;
                 break;
             case SDL_KEYDOWN:
+                // ESCAPE to exit the game
                 if (event.key.keysym.sym == SDLK_ESCAPE)
                 {
                     eQuit = true;
                 }
+                // SPACE to start the game
                 if (event.key.keysym.sym == SDLK_SPACE)
                 {
                     game = !game;
@@ -317,12 +276,15 @@ int main(int argc, char *args[])
 
         SDL_Delay(15); // Keep < 500 [ms]
 
-        // Log every 10 frames
-        if (iteration > 0 && iteration % 10 == 0)
+        if (game)
         {
-            SDL_Log("Ball x %f y %f, speedx %f speedy %f\n", ballX, ballY, ballSpeedX, ballSpeedY);
+            // Log every 10 frames
+            if (iteration > 0 && iteration % 10 == 0)
+            {
+                SDL_Log("Ball x %f y %f, speedx %f speedy %f\n", ballX, ballY, ballSpeedX, ballSpeedY);
+            }
+            iteration++;
         }
-        iteration++;
     }
 
     SDL_DestroyWindow(window);
