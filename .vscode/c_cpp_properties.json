@@ -4,7 +4,8 @@
             "name": "Mac",
             "includePath": [
                 "${default}",
-                "${workspaceFolder}/SDL/include"
+                "${workspaceFolder}/SDL/include",
+                "${workspaceFolder}/SDL_ttf"
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",

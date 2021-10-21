@@ -1,0 +1,11 @@
+#!/bin/bash
+# See docs at https://github.com/timhutton/sdl-canvas-wasm
+# and https://emscripten.org/docs/getting_started/downloads.html
+source "./emsdk/emsdk_env.sh"
+
+# Copy lzma from brew
+# https://github.com/pandas-dev/pandas/issues/27532
+cp /usr/local/Cellar/python@3.9/3.9.7_1/Frameworks/Python.framework/Versions/3.9/lib/python3.9/lib-dynload/_lzma.cpython-39-darwin.so \
+    ./emsdk/python/3.9.2-1_64bit/lib/python3.9
+
+EMCC_DEBUG=1 emcc main.cpp --preload-file ./assets@assets/ -s WASM=1 -s USE_SDL=2 -s USE_HARFBUZZ=1 -s USE_SDL_TTF=2 -O3 -o main.js

@@ -7,3 +7,8 @@ x86_64-w64-mingw32
 SDL_ttf
 main.exe.stackdump
 vine.mp3
+main.js
+main.data
+main.wasm
+emsdk
+.DS_Store
