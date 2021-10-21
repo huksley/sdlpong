@@ -1,2 +1,2 @@
 #!/bin/bash
-gcc -g main.cpp -ISDL/include -LSDL/build -ISDL_ttf -LSDL_ttf/.libs -lSDL2 -lSDL2_ttf -o main
+gcc -g main.cpp -ISDL/include -LSDL/build -ISDL_ttf -LSDL_ttf/.libs -lSDL2 -lSDL2_ttf -Wall -o main

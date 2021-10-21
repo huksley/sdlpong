@@ -15,7 +15,7 @@
 #define WINDOW_TITLE "Ping"
 #define WINDOW_TEXT "Pong"
 
-// All info about sound to play
+// Current sound to play
 struct soundspec
 {
     bool playing;
@@ -27,6 +27,7 @@ struct soundspec
     SDL_AudioSpec wav_spec; // the specs of our piece of music
 };
 
+// Loaded sound
 struct wavdef
 {
     const char *path;
@@ -122,10 +123,9 @@ void check_play_end(struct soundspec *spec)
 {
     if (spec->playing && spec->audio_len == 0)
     {
-        SDL_CloseAudio();
-        SDL_FreeWAV(spec->wav_buffer);
-        spec->playing = false;
         SDL_Log("Stop playing sound %s\n", spec->path);
+        SDL_CloseAudio();
+        spec->playing = false;
     }
 }
 
