@@ -1,17 +1,138 @@
 #include <stdio.h>
 #include <math.h>
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <SDL/SDL_image.h>
+#include <SDL/SDL_ttf.h>
+#else
 #include "SDL.h"
 #include "SDL_ttf.h"
+#endif
 
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
 #define WINDOW_TITLE "Ping"
 #define WINDOW_TEXT "Pong"
 
+// All info about sound to play
+struct soundspec
+{
+    bool playing;
+    const char *path;
+    Uint8 *audio_pos;       // global pointer to the audio buffer to be played
+    Uint32 audio_len;       // remaining length of the sample we have to play
+    Uint32 wav_length;      // length of our sample
+    Uint8 *wav_buffer;      // buffer containing our audio file
+    SDL_AudioSpec wav_spec; // the specs of our piece of music
+};
+
+struct wavdef
+{
+    const char *path;
+    Uint32 wav_length;      // length of our sample
+    Uint8 *wav_buffer;      // buffer containing our audio file
+    SDL_AudioSpec wav_spec; // the specs of our piece of music
+};
+
+int load_wav(const char *path, struct wavdef *def)
+{
+    if (SDL_LoadWAV(path, &def->wav_spec, &def->wav_buffer, &def->wav_length) == NULL)
+    {
+        SDL_Log("Couldn't load %s wav file: %s\n", path, SDL_GetError());
+        return 1;
+    }
+
+    def->path = path;
+    return 0;
+}
+
+void free_wav(struct wavdef *def)
+{
+    if (def->wav_buffer)
+    {
+        SDL_FreeWAV(def->wav_buffer);
+        def->wav_buffer = NULL;
+    }
+}
+
+void my_audio_callback(void *userdata, Uint8 *stream, int len)
+{
+    struct soundspec *spec = (struct soundspec *)userdata;
+    SDL_Log("Audio callback len = %i, remaining %i\n", len, spec->audio_len);
+
+    if (spec->audio_len == 0)
+        return;
+
+    len = (len > spec->audio_len ? spec->audio_len : len);
+    SDL_memcpy(stream, spec->audio_pos, len); // simply copy from one buffer into the other
+
+    spec->audio_pos += len;
+    spec->audio_len -= len;
+}
+
+void cancel_sound(struct soundspec *spec)
+{
+    if (spec->playing)
+    {
+        SDL_CloseAudio();
+        spec->playing = false;
+        SDL_Log("Cancel playing sound %s\n", spec->path);
+    }
+}
+
+int play_sound(struct wavdef *def, struct soundspec *spec)
+{
+    if (spec->playing)
+    {
+        SDL_Log("Already playing %s\n", spec->path);
+        return 1;
+    }
+
+    // Save file name
+    spec->path = def->path;
+
+    // Copy definition
+    SDL_memcpy(&spec->wav_spec, &def->wav_spec, sizeof(def->wav_spec));
+    spec->wav_buffer = def->wav_buffer;
+    spec->wav_length = def->wav_length;
+
+    // set the callback function
+    spec->wav_spec.callback = my_audio_callback;
+    spec->wav_spec.userdata = spec;
+    // set our global static variables
+    spec->audio_pos = spec->wav_buffer; // copy sound buffer
+    spec->audio_len = spec->wav_length; // copy file length
+
+    /* Open the audio device */
+    if (SDL_OpenAudio(&spec->wav_spec, NULL) < 0)
+    {
+        SDL_Log("Couldn't open audio: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    /* Start playing */
+    SDL_PauseAudio(0);
+    spec->playing = true;
+    SDL_Log("Playing sound %s len %i\n", spec->path, spec->audio_len);
+    return 0;
+}
+
+void check_play_end(struct soundspec *spec)
+{
+    if (spec->playing && spec->audio_len == 0)
+    {
+        SDL_CloseAudio();
+        SDL_FreeWAV(spec->wav_buffer);
+        spec->playing = false;
+        SDL_Log("Stop playing sound %s\n", spec->path);
+    }
+}
+
 void drawText(SDL_Surface *screen, char *string, int size, int x, int y, SDL_Color fgC, SDL_Color bgC)
 {
     // Remember to call TTF_Init(), TTF_Quit(), before/after using this function.
-    TTF_Font *font = TTF_OpenFont("Ubuntu-R.ttf", size);
+    TTF_Font *font = TTF_OpenFont("assets/pixeboy.ttf", size);
     if (!font)
     {
         SDL_Log("[ERROR] TTF_OpenFont() Failed with: %s\n", TTF_GetError());
@@ -83,7 +204,7 @@ int main(int argc, char *args[])
     double ballCenterX = SCREEN_WIDTH / 2 - ballW / 2;
     double ballCenterY = SCREEN_HEIGHT / 2 - ballH / 2;
     double ballSpeedX = 5;
-    double ballSpeedY = 1;
+    double ballSpeedY = 2;
     double ballX = ballCenterX;
     double ballY = ballCenterY;
     int scoreLeft = 0;
@@ -99,6 +220,12 @@ int main(int argc, char *args[])
     bool game = false;
     char score[200];
 
+    struct wavdef backAud;
+    struct wavdef pong;
+
+    struct soundspec sound;
+    sound.playing = false;
+
     /*
     Control: Q,A left paddle, P,L right paddle
     Space: Start game
@@ -111,6 +238,10 @@ int main(int argc, char *args[])
     ===================
     */
 
+    load_wav("assets/audio/backAud.wav", &backAud);
+    load_wav("assets/audio/pong2.wav", &pong);
+
+    play_sound(&backAud, &sound);
     SDL_Event event;
     bool eQuit = false;
     long iteration = 0;
@@ -158,6 +289,7 @@ int main(int argc, char *args[])
             if (ball.y >= right.y && ball.y <= right.y + right.h)
             {
                 ballSpeedX *= -1;
+                play_sound(&pong, &sound);
             }
             else
             {
@@ -168,6 +300,7 @@ int main(int argc, char *args[])
                 ballX = ballCenterX;
                 ballY = ballCenterY;
                 SDL_Log("Game ended!");
+                play_sound(&backAud, &sound);
             }
         }
 
@@ -177,6 +310,7 @@ int main(int argc, char *args[])
             if (ball.y >= left.y && ball.y <= left.y + left.h)
             {
                 ballSpeedX *= -1;
+                play_sound(&pong, &sound);
             }
             else
             {
@@ -187,6 +321,7 @@ int main(int argc, char *args[])
                 ballX = ballCenterX;
                 ballY = ballCenterY;
                 SDL_Log("Game ended!");
+                play_sound(&backAud, &sound);
             }
         }
 
@@ -228,6 +363,14 @@ int main(int argc, char *args[])
                 if (event.key.keysym.sym == SDLK_SPACE)
                 {
                     game = !game;
+                    if (game)
+                    {
+                        cancel_sound(&sound);
+                    }
+                    else
+                    {
+                        play_sound(&backAud, &sound);
+                    }
                 }
                 if (game)
                 {
@@ -274,6 +417,7 @@ int main(int argc, char *args[])
             }
         }
 
+        check_play_end(&sound);
         SDL_Delay(15); // Keep < 500 [ms]
 
         if (game)
@@ -287,6 +431,9 @@ int main(int argc, char *args[])
         }
     }
 
+    cancel_sound(&sound);
+    free_wav(&backAud);
+    free_wav(&pong);
     SDL_DestroyWindow(window);
     SDL_Quit();
     TTF_Quit();
