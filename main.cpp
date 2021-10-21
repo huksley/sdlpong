@@ -3,6 +3,7 @@
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#include <emscripten/html5.h>
 #include <SDL/SDL_image.h>
 #include <SDL/SDL_ttf.h>
 #else
@@ -148,6 +149,243 @@ void drawText(SDL_Surface *screen, char *string, int size, int x, int y, SDL_Col
     TTF_CloseFont(font);
 }
 
+int height = 65;
+int width = 15;
+int moveDelta = 30;
+int leftX = 20;
+int centerY = SCREEN_HEIGHT / 2 - height / 2;
+int leftY = centerY;
+int leftUp = SDL_SCANCODE_Q;
+int leftDown = SDL_SCANCODE_A;
+int rightX = SCREEN_WIDTH - 20 - width;
+int rightY = centerY;
+int rightUp = SDL_SCANCODE_P;
+int rightDown = SDL_SCANCODE_L;
+int ballW = 10;
+int ballH = 10;
+double ballCenterX = SCREEN_WIDTH / 2 - ballW / 2;
+double ballCenterY = SCREEN_HEIGHT / 2 - ballH / 2;
+double ballSpeedX = 5;
+double ballSpeedY = 2;
+double ballX = ballCenterX;
+double ballY = ballCenterY;
+int scoreLeft = 0;
+int scoreRight = 0;
+SDL_Color textColor = {0xff, 0xff, 0xff};
+SDL_Color black = {0, 0, 0};
+bool game = false;
+char score[200];
+struct soundspec sound;
+struct wavdef backAud;
+struct wavdef pong;
+SDL_Window *window;
+SDL_Surface *screenSurface;
+Uint32 color;
+Uint32 backgroundColor;
+int iteration;
+
+// Emscripten contains scancode in sym field, on SDL Mac/Windows scancode in scancode field
+#ifdef __EMSCRIPTEN__
+#define KEYFIELD(x) x.sym
+#else
+#define KEYFIELD(x) x.scancode
+#endif
+
+// Run this in loop
+bool game_loop()
+{
+    bool eQuit = false;
+    SDL_FillRect(screenSurface, NULL, backgroundColor);
+
+    // Draw left paddle
+    SDL_Rect left;
+    left.x = leftX;
+    left.y = leftY;
+    left.w = width;
+    left.h = height;
+    SDL_FillRect(screenSurface, &left, color);
+
+    // Draw right paddle
+    SDL_Rect right;
+    right.x = rightX;
+    right.y = rightY;
+    right.w = width;
+    right.h = height;
+    SDL_FillRect(screenSurface, &right, color);
+
+    // Draw ball
+    SDL_Rect ball;
+    ball.x = round(ballX - ballW / 2);
+    ball.y = round(ballY - ballH / 2);
+    ball.w = ballW;
+    ball.h = ballH;
+    SDL_FillRect(screenSurface, &ball, color);
+
+    if (game)
+    {
+        // Update ball position
+        ballX += ballSpeedX;
+        ballY += ballSpeedY;
+
+        snprintf(score, 200, "Score %i:%i", scoreLeft, scoreRight);
+        drawText(screenSurface, score, 18, 10, 10, textColor, black);
+    }
+
+    // Check ball collision right wall / paddle
+    if (ballX >= right.x)
+    {
+        if (ball.y >= right.y && ball.y <= right.y + right.h)
+        {
+            ballSpeedX *= -1;
+            play_sound(&pong, &sound);
+        }
+        else
+        {
+            scoreLeft += 1;
+            game = false;
+            rightY = centerY;
+            leftY = centerY;
+            ballX = ballCenterX;
+            ballY = ballCenterY;
+            SDL_Log("Game ended!");
+            play_sound(&backAud, &sound);
+        }
+    }
+
+    // Check ball collision left wall / paddle
+    if (ballX <= left.x + width)
+    {
+        if (ball.y >= left.y && ball.y <= left.y + left.h)
+        {
+            ballSpeedX *= -1;
+            play_sound(&pong, &sound);
+        }
+        else
+        {
+            scoreRight += 1;
+            game = false;
+            rightY = centerY;
+            leftY = centerY;
+            ballX = ballCenterX;
+            ballY = ballCenterY;
+            SDL_Log("Game ended!");
+            play_sound(&backAud, &sound);
+        }
+    }
+
+    // Check ball collision top wall
+    if (ballY <= 0)
+    {
+        ballSpeedY *= -1;
+    }
+
+    // Check ball collision bottom wall
+    if (ballY >= SCREEN_HEIGHT)
+    {
+        ballSpeedY *= -1;
+    }
+
+    // If !game, game isnt live
+    if (!game)
+    {
+        snprintf(score, 200, "Score %i:%i. Press SPACE to play. Q, A - left, P, L - right.", scoreLeft, scoreRight);
+        drawText(screenSurface, score, 18, 10, 10, textColor, black);
+    }
+
+    SDL_UpdateWindowSurface(window);
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event))
+    {
+        switch (event.type)
+        {
+        case SDL_QUIT:
+            eQuit = true;
+            break;
+        case SDL_KEYDOWN:
+            SDL_Log("Keydown scancode %i\n", event.key.keysym.scancode);
+            // ESCAPE to exit the game
+            if (KEYFIELD(event.key.keysym) == SDL_SCANCODE_ESCAPE)
+            {
+                eQuit = true;
+            }
+            // SPACE to start the game
+            if (KEYFIELD(event.key.keysym) == SDL_SCANCODE_SPACE)
+            {
+                game = !game;
+                if (game)
+                {
+                    cancel_sound(&sound);
+                }
+                else
+                {
+                    play_sound(&backAud, &sound);
+                }
+            }
+            if (game)
+            {
+                // When you press a key, change coord up LEFT
+                if (KEYFIELD(event.key.keysym) == leftUp)
+                {
+                    if (leftY >= 0)
+                    {
+                        leftY -= moveDelta;
+                    }
+                }
+                // When you press a key, change coord down LEFT
+                if (KEYFIELD(event.key.keysym) == leftDown)
+                {
+                    if (leftY <= SCREEN_HEIGHT - left.h)
+                    {
+                        leftY += moveDelta;
+                    }
+                }
+                // When you press a key, change coord up RIGHT
+                if (KEYFIELD(event.key.keysym) == rightUp)
+                {
+                    if (rightY >= 0)
+                    {
+                        rightY -= moveDelta;
+                    }
+                }
+                // When you press a key, change coord down RIGHT
+                if (KEYFIELD(event.key.keysym) == rightDown)
+                {
+                    if (rightY <= SCREEN_HEIGHT - right.h)
+                    {
+                        rightY += moveDelta;
+                    }
+                }
+            }
+            break;
+        case SDL_WINDOWEVENT_CLOSE:
+            eQuit = true;
+            break;
+        default:
+            //SDL_Log("Got unknown event type %i, id %d\n", event.type, event.window.event);
+            break;
+        }
+    }
+
+    if (game)
+    {
+        // Log every 10 frames
+        if (iteration > 0 && iteration % 10 == 0)
+        {
+            SDL_Log("Ball x %f y %f, speedx %f speedy %f\n", ballX, ballY, ballSpeedX, ballSpeedY);
+        }
+        iteration++;
+    }
+
+    check_play_end(&sound);
+    return eQuit;
+}
+
+void game_loop_wrapper()
+{
+    bool eQuit = game_loop();
+}
+
 #if defined(_WIN32) && defined(_MINGW32)
 #include <windows.h>
 int WINAPI WinMain(HINSTANCE hInstance,
@@ -164,7 +402,7 @@ int main(int argc, char *args[])
         return 1;
     }
 
-    SDL_Window *window = SDL_CreateWindow(
+    window = SDL_CreateWindow(
         WINDOW_TITLE,
         SDL_WINDOWPOS_CENTERED_DISPLAY(1),
         SDL_WINDOWPOS_UNDEFINED,
@@ -184,47 +422,14 @@ int main(int argc, char *args[])
         return 1;
     }
 
-    int height = 65;
-    int width = 15;
-    int moveDelta = 30;
-
-    int leftX = 20;
-    int centerY = SCREEN_HEIGHT / 2 - height / 2;
-    int leftY = centerY;
-    int leftUp = SDLK_q;
-    int leftDown = SDLK_a;
-
-    int rightX = SCREEN_WIDTH - 20 - width;
-    int rightY = centerY;
-    int rightUp = SDLK_p;
-    int rightDown = SDLK_l;
-
-    int ballW = 10;
-    int ballH = 10;
-    double ballCenterX = SCREEN_WIDTH / 2 - ballW / 2;
-    double ballCenterY = SCREEN_HEIGHT / 2 - ballH / 2;
-    double ballSpeedX = 5;
-    double ballSpeedY = 2;
-    double ballX = ballCenterX;
-    double ballY = ballCenterY;
-    int scoreLeft = 0;
-    int scoreRight = 0;
-
-    SDL_Surface *screenSurface = SDL_GetWindowSurface(window);
-    Uint32 color = SDL_MapRGB(screenSurface->format, 240, 240, 240);
-    Uint32 backgroundColor = SDL_MapRGB(screenSurface->format, 0, 0, 0);
-    SDL_Color textColor = {0xff, 0xff, 0xff};
-    SDL_Color black = {0, 0, 0};
+    screenSurface = SDL_GetWindowSurface(window);
+    color = SDL_MapRGB(screenSurface->format, 240, 240, 240);
+    backgroundColor = SDL_MapRGB(screenSurface->format, 0, 0, 0);
     SDL_FillRect(screenSurface, NULL, backgroundColor);
     SDL_UpdateWindowSurface(window);
-    bool game = false;
-    char score[200];
-
-    struct wavdef backAud;
-    struct wavdef pong;
-
-    struct soundspec sound;
     sound.playing = false;
+    load_wav("assets/audio/backAud.wav", &backAud);
+    load_wav("assets/audio/pong2.wav", &pong);
 
     /*
     Control: Q,A left paddle, P,L right paddle
@@ -238,198 +443,19 @@ int main(int argc, char *args[])
     ===================
     */
 
-    load_wav("assets/audio/backAud.wav", &backAud);
-    load_wav("assets/audio/pong2.wav", &pong);
-
     play_sound(&backAud, &sound);
-    SDL_Event event;
     bool eQuit = false;
-    long iteration = 0;
+    iteration = 0;
+
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(game_loop_wrapper, 60, 1);
+#else
     while (!eQuit)
     {
-        SDL_FillRect(screenSurface, NULL, backgroundColor);
-
-        // Draw left paddle
-        SDL_Rect left;
-        left.x = leftX;
-        left.y = leftY;
-        left.w = width;
-        left.h = height;
-        SDL_FillRect(screenSurface, &left, color);
-
-        // Draw right paddle
-        SDL_Rect right;
-        right.x = rightX;
-        right.y = rightY;
-        right.w = width;
-        right.h = height;
-        SDL_FillRect(screenSurface, &right, color);
-
-        // Draw ball
-        SDL_Rect ball;
-        ball.x = round(ballX - ballW / 2);
-        ball.y = round(ballY - ballH / 2);
-        ball.w = ballW;
-        ball.h = ballH;
-        SDL_FillRect(screenSurface, &ball, color);
-
-        if (game)
-        {
-            // Update ball position
-            ballX += ballSpeedX;
-            ballY += ballSpeedY;
-
-            snprintf(score, 200, "Score %i:%i", scoreLeft, scoreRight);
-            drawText(screenSurface, score, 18, 10, 10, textColor, black);
-        }
-
-        // Check ball collision right wall / paddle
-        if (ballX >= right.x)
-        {
-            if (ball.y >= right.y && ball.y <= right.y + right.h)
-            {
-                ballSpeedX *= -1;
-                play_sound(&pong, &sound);
-            }
-            else
-            {
-                scoreLeft += 1;
-                game = false;
-                rightY = centerY;
-                leftY = centerY;
-                ballX = ballCenterX;
-                ballY = ballCenterY;
-                SDL_Log("Game ended!");
-                play_sound(&backAud, &sound);
-            }
-        }
-
-        // Check ball collision left wall / paddle
-        if (ballX <= left.x + width)
-        {
-            if (ball.y >= left.y && ball.y <= left.y + left.h)
-            {
-                ballSpeedX *= -1;
-                play_sound(&pong, &sound);
-            }
-            else
-            {
-                scoreRight += 1;
-                game = false;
-                rightY = centerY;
-                leftY = centerY;
-                ballX = ballCenterX;
-                ballY = ballCenterY;
-                SDL_Log("Game ended!");
-                play_sound(&backAud, &sound);
-            }
-        }
-
-        // Check ball collision top wall
-        if (ballY <= 0)
-        {
-            ballSpeedY *= -1;
-        }
-
-        // Check ball collision bottom wall
-        if (ballY >= SCREEN_HEIGHT)
-        {
-            ballSpeedY *= -1;
-        }
-
-        // If !game, game isnt live
-        if (!game)
-        {
-            snprintf(score, 200, "Score %i:%i. Press SPACE to play. Q, A - left, P, L - right.", scoreLeft, scoreRight);
-            drawText(screenSurface, score, 18, 10, 10, textColor, black);
-        }
-
-        SDL_UpdateWindowSurface(window);
-
-        while (SDL_PollEvent(&event))
-        {
-            switch (event.type)
-            {
-            case SDL_QUIT:
-                eQuit = true;
-                break;
-            case SDL_KEYDOWN:
-                // ESCAPE to exit the game
-                if (event.key.keysym.sym == SDLK_ESCAPE)
-                {
-                    eQuit = true;
-                }
-                // SPACE to start the game
-                if (event.key.keysym.sym == SDLK_SPACE)
-                {
-                    game = !game;
-                    if (game)
-                    {
-                        cancel_sound(&sound);
-                    }
-                    else
-                    {
-                        play_sound(&backAud, &sound);
-                    }
-                }
-                if (game)
-                {
-                    // When you press a key, change coord up LEFT
-                    if (event.key.keysym.sym == leftUp)
-                    {
-                        if (leftY >= 0)
-                        {
-                            leftY -= moveDelta;
-                        }
-                    }
-                    // When you press a key, change coord down LEFT
-                    if (event.key.keysym.sym == leftDown)
-                    {
-                        if (leftY <= SCREEN_HEIGHT - left.h)
-                        {
-                            leftY += moveDelta;
-                        }
-                    }
-                    // When you press a key, change coord up RIGHT
-                    if (event.key.keysym.sym == rightUp)
-                    {
-                        if (rightY >= 0)
-                        {
-                            rightY -= moveDelta;
-                        }
-                    }
-                    // When you press a key, change coord down RIGHT
-                    if (event.key.keysym.sym == rightDown)
-                    {
-                        if (rightY <= SCREEN_HEIGHT - right.h)
-                        {
-                            rightY += moveDelta;
-                        }
-                    }
-                }
-                break;
-            case SDL_WINDOWEVENT_CLOSE:
-                eQuit = true;
-                break;
-            default:
-                //SDL_Log("Got unknown event type %i, id %d\n", event.type, event.window.event);
-                break;
-            }
-        }
-
-        check_play_end(&sound);
+        eQuit = game_loop();
         SDL_Delay(15); // Keep < 500 [ms]
-
-        if (game)
-        {
-            // Log every 10 frames
-            if (iteration > 0 && iteration % 10 == 0)
-            {
-                SDL_Log("Ball x %f y %f, speedx %f speedy %f\n", ballX, ballY, ballSpeedX, ballSpeedY);
-            }
-            iteration++;
-        }
     }
+#endif
 
     cancel_sound(&sound);
     free_wav(&backAud);
